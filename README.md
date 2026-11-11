@@ -29,10 +29,35 @@ A Codex skill for PCB placement, routing and manufacturing-data verification in 
 2. 操作实际板图需安装 easyeda-api，按其说明加载 `run-api-gateway` 并连接桌面客户端，使用 Node.js 18+。已验证组合为 easyeda-api 1.1.36 与嘉立创EDA 4.1.99。For live jobs, connect the desktop extension to its bridge and use Node.js 18+. The recorded configuration used easyeda-api 1.1.36 with EasyEDA 4.1.99.
 3. 离线 CAM 复现需 Python、NumPy、SciPy 及上表所链接提交的 pcb-skill 本地副本。外部自动布线可选 FreeRouting；运行下列检查无需启动路由器。Offline CAM checks require Python, NumPy, SciPy and a local checkout of the linked pcb-skill revision. FreeRouting is optional for external routing trials.
 
-从本仓库根目录运行。第一条命令生成并验证一个双层样板的正常、开路、短路三种情况，无需打开 EDA。Run from the repository root. The first command generates and checks connected, open and shorted fixtures without a live EDA session.
+### 从空目录运行双层样板 · Run the two-layer example from scratch
+
+在空的测试项目中打开 PowerShell，准备 Git 和带 `venv` 的 Python。以下命令将技能安装在项目的 `.agents/skills/`，上游仓库和虚拟环境放在其外。打开该项目的新 Codex 会话即可按名称引用 `$pcb-pr-skill`。Open PowerShell in an empty test project with Git and Python available. The commands install a project-local skill and keep the upstream checkout and Python environment outside the skill. Start a new Codex session in that project to invoke it by name.
+
+```powershell
+New-Item -ItemType Directory -Force .agents/skills | Out-Null
+git clone https://github.com/sanityARO/pcb-pr-skill.git .agents/skills/pcb-pr-skill
+git clone https://github.com/daishuge/pcb-skill.git pcb-skill
+git -C pcb-skill checkout --detach 6e939b64907e3c63236c7522c511af5d7d1afaad
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install numpy scipy
+.\.venv\Scripts\python.exe .agents/skills/pcb-pr-skill/scripts/test-cam.py ./pcb-skill
+```
+
+在 macOS/Linux 上，使用 `mkdir -p .agents/skills`、`python3 -m venv .venv` 和 `.venv/bin/python`。CAM 示例只用合成 Gerber 和钻孔文件，运行结束后自动清理。On macOS/Linux, use those directory and interpreter commands with the same Git and script arguments. The example creates temporary synthetic Gerber and drill files and cleans them up on exit.
+
+已在 Windows 独立环境验证 Python 3.10.5、NumPy 2.2.6、SciPy 1.15.3。预期输出顺序为正常、缺少镀孔、两网短接。后两个 `False` 表示成功检出注入的故障。三个用例均符合预期时，测试脚本退出码为 0。Verified in a fresh Windows environment with Python 3.10.5, NumPy 2.2.6 and SciPy 1.15.3. Expected cases are a good board, an open caused by an omitted plated hole, and a short between two nets. Both `False` lines are expected detections. The test process exits with code 0 when all three cases match expectations.
 
 ```text
-python scripts/test-cam.py PATH_TO_PCB_SKILL
+2 nets, 4 pads, passed=True
+2 nets, 4 pads, passed=False
+2 nets, 4 pads, passed=False
+```
+
+### 使用自己的板图 · Check your own board
+
+从技能目录运行下列命令，使用已安装上述依赖的 Python。替换工程及板 UUID、上游路径与文件名。快照需要已连接的 EDA 客户端；独立 CAM 检查需要自己的 Gerber ZIP 和焊盘清单，格式见操作参考。From the skill directory, use the environment above and substitute your UUIDs, paths and filenames. A snapshot requires a live bridge. For standalone CAM verification, supply your own Gerber ZIP and pad manifest. [清单格式与现场操作 / Manifest format and live jobs](references/easyeda-cam.md)
+
+```text
 node scripts/board-job.mjs snapshot PROJECT_UUID BOARD_UUID before.epcb
 python scripts/cam-check.py check.zip manifest.json report.json --pcb-skill PATH_TO_PCB_SKILL --resolution 0.025
 ```
