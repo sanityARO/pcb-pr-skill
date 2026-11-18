@@ -36,17 +36,23 @@ Track pending rechecks during continuous routing and rebuild pours at the stage 
 
 | 项目 / Project | 用途与边界 / Scope |
 |---|---|
+| [PcbCliTool](https://github.com/cc38324/PcbCliTool) | **优先用于本地文件夹工程的离线 PCB 操作。** 本项目验证版本为 [0.3.0](https://github.com/cc38324/PcbCliTool/releases/tag/v0.3.0)（Windows x64，命令名 `easyedatool`）。已运行官方基础 Demo，并只读核对六层测试板的本地 `.eprj3` 工程。**Preferred for offline PCB operations on local folder projects.** Tested here with version **0.3.0** on Windows x64, invoked as `easyedatool`. Validation covered the official basic demo and read-only inspection of the six-layer test board's local `.eprj3` project. |
 | [easyeda-api](https://github.com/easyeda/easyeda-api-skill) | 提供 SDK 文档、桌面扩展与本机网关，负责现场读写。Provides the SDK reference, desktop extension and local bridge for live board access. |
 | [daishuge/pcb-skill](https://github.com/daishuge/pcb-skill/tree/6e939b64907e3c63236c7522c511af5d7d1afaad) | 参考的上游版本覆盖更广的 PCB 制作流程，包括布局、布线和 Gerber 工具。本技能的 CAM 检查调用该仓库的解析代码。The upstream workflow covers a broader board-development cycle, including placement, routing and Gerber tools. Our CAM checker imports its parser from a local checkout. |
 | **pcb-pr-skill** | 针对 spadfe 中单靠路由完成提示无法判定的三件事补充操作和脚本：拥塞时怎样回退布局、超时后如何确认操作落在哪张板、导出铜层是否连接了所有预期焊盘。Adds procedures for three decisions encountered on spadfe: when to revise placement, how to identify the board and job after a timeout, and how to check exported copper against every expected pad. |
+
+本地工程操作优先考虑 PcbCliTool；需要读取客户端当前状态、通过 SDK 修改图纸或运行本仓库的现场作业脚本时使用 easyeda-api。首次处理已有工程，先核对读取结果，再在副本验证写回。0.3.0 对部分实例引脚编号和跨页连接的解析曾出现差异，需要与原始数据交叉核对；六层测试板尚未通过 PcbCliTool 完成整板重布验证。
+
+Prefer PcbCliTool for local project operations. Use easyeda-api for current client state, SDK edits and the live-job scripts in this repository. For an existing project, verify parsing first, then test writes on a copy. Version 0.3.0 produced some discrepancies when interpreting instance pin numbers and off-page connections, requiring cross-checks against source data. Full-board rerouting of the six-layer example with PcbCliTool remains unverified.
 
 布局和布线采用 Codex、EDA 工具及可选外部路由器协同完成。仓库内脚本负责现场作业和制造文件核验。Placement and routing use Codex, EDA tools and an optional external router. The bundled scripts handle board jobs and CAM checks.
 
 ## 安装与复现 · Installation and reproduction
 
 1. 将本仓库放入 Codex 技能目录下的 `pcb-pr-skill/`，确保 `SKILL.md` 位于该目录根部。Install this repository as `~/.codex/skills/pcb-pr-skill/`, with `SKILL.md` at its root.
-2. 操作实际板图需安装 easyeda-api，按其说明加载 `run-api-gateway` 并连接桌面客户端，使用 Node.js 18+。已验证组合为 easyeda-api 1.1.36 与嘉立创EDA 4.1.99。For live jobs, connect the desktop extension to its bridge and use Node.js 18+. The recorded configuration used easyeda-api 1.1.36 with EasyEDA 4.1.99.
-3. 离线 CAM 复现需 Python、NumPy、SciPy 及上表所链接提交的 pcb-skill 本地副本。外部自动布线可选 FreeRouting；运行下列检查无需启动路由器。Offline CAM checks require Python, NumPy, SciPy and a local checkout of the linked pcb-skill revision. FreeRouting is optional for external routing trials.
+2. 本地离线操作优先按 [PcbCliTool 安装说明](https://github.com/cc38324/PcbCliTool/blob/main/README.md)准备工具，读取随安装包提供的 `SKILL.md`，并用 `easyedatool --version` 记录版本。For local offline work, set up PcbCliTool, read its bundled `SKILL.md` and record `easyedatool --version`.
+3. 使用客户端现场作业时安装 easyeda-api，按其说明加载 `run-api-gateway` 并连接桌面客户端，使用 Node.js 18+。已验证组合为 easyeda-api 1.1.36 与嘉立创EDA 4.1.99。For live jobs, connect the desktop extension to its bridge and use Node.js 18+. The recorded configuration used easyeda-api 1.1.36 with EasyEDA 4.1.99.
+4. 离线 CAM 复现需 Python、NumPy、SciPy 及上表所链接提交的 pcb-skill 本地副本。外部自动布线可选 FreeRouting；运行下列检查无需启动路由器。Offline CAM checks require Python, NumPy, SciPy and a local checkout of the linked pcb-skill revision. FreeRouting is optional for external routing trials.
 
 ### 从空目录运行双层样板 · Run the two-layer example from scratch
 
