@@ -22,9 +22,18 @@ An AI-assisted workflow from board schematics to placement, routing and fabricat
 
 Congestion in the existing pcb-skill/router workflow motivated the placement rollback and routing continuation methods collected here.
 
+**中文图示**
+
 <p>
-<img src="assets/grouped-fanout.png" width="380" alt="固定 FPGA 母座后重排电阻与 DUT 扇出 / Resistor regrouping around fixed headers">
-<img src="assets/spi-miso-reroute.png" width="380" alt="SPI_MISO 相同三个端点的两版走线 / Two routes with the same endpoints">
+<a href="assets/grouped-fanout.png"><img src="assets/grouped-fanout.png" width="380" alt="固定 FPGA 母座后重排 0 Ω 电阻与 DUT 扇出"></a>
+<a href="assets/spi-miso-reroute.png"><img src="assets/spi-miso-reroute.png" width="380" alt="SPI_MISO 在相同三个端点下的局部重布比较"></a>
+</p>
+
+**English figures**
+
+<p>
+<a href="assets/grouped-fanout-en.png"><img src="assets/grouped-fanout-en.png" width="380" alt="Regrouping 0-ohm resistors and DUT fanout around fixed FPGA headers"></a>
+<a href="assets/spi-miso-reroute-en.png"><img src="assets/spi-miso-reroute-en.png" width="380" alt="SPI_MISO before and after local rerouting with the same three endpoints"></a>
 </p>
 
 | 已记录结果 / Recorded result | 比较范围 / Scope |
