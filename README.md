@@ -158,3 +158,9 @@ The checker supports positive copper and circular plated through-holes. Recheck 
 欢迎在副本上试用，并在 issue 中提供工具版本、问题位置及可分享的最小示例。
 
 Try it on a copy and report the tool versions, problem location and a shareable minimal example in an issue.
+
+## 许可证 · License
+
+本仓库采用 [MIT 许可证](LICENSE)。所引用或依赖的第三方工具仍遵循各自的许可证；本许可证不替代它们的许可条款。
+
+This repository is licensed under the [MIT License](LICENSE). Referenced and dependent third-party tools remain subject to their own licenses.
