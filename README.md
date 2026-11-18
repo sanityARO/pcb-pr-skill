@@ -9,9 +9,28 @@ A Codex skill for PCB placement, routing and manufacturing-data verification in 
 | 阶段 / Stage | 操作与交付物 / Actions and evidence |
 |---|---|
 | 冻结基线 / Freeze | 记录工程及板 UUID、网表、固定器件、引脚映射、机械与叠层约束，保存板源。Record the project and board UUIDs, netlist, fixed parts, pin map, mechanical constraints and stackup. Save a source snapshot. |
-| 布局 / Place | 先安排接口、光窗、探测空间和供电回流。按 DUT 管脚顺序对齐 FPGA 电阻组，给模拟偏置留独立通道。Reserve mechanical, probing and return-path space. Align resistor banks with DUT pin order and reserve an analog bias corridor. |
-| 试布与回退 / Route and revise | 在副本按端点组成组扇出。若串联电阻区形成瓶颈，局部拆线、调整间距、恢复受影响的控制线，再以相同端点比较断点、长度、过孔和回流。On a copy, escape signals in groups. At a bottleneck, rip up locally, revise spacing, restore displaced control nets and compare the same endpoints across candidates. |
+| 布局 / Place | 先安排接口、光窗、探测空间和供电回流。按引脚顺序成组安排串联器件，放件时检查去耦和测试接法。Reserve mechanical, probing and return-path space. Group series components by pin order and check decoupling and test connections during placement. |
+| 试布与回退 / Route and revise | 在副本按端点组成组扇出，随走线核对参考面、换层、线宽和支路。若串联电阻区形成瓶颈，局部拆线、调整间距、恢复受影响的控制线，再以相同端点比较断点、长度、过孔和回流。On a copy, escape signals in groups and apply reference, transition, width and branch constraints as routing proceeds. At a bottleneck, rip up locally, revise spacing, restore displaced control nets and compare the same endpoints across candidates. |
 | 实铜验收 / Verify | 一个布线阶段结束后统一重建铺铜。保存并重开正式板，核对身份、运行原生 DRC，对同版 Gerber、钻孔与带网焊盘表做连通检查。After each routing stage, rebuild pours, save and reopen the target board. Run native DRC and check its Gerbers and drills against an independently derived pad manifest. |
+
+## 在设计过程中应用规则 · Apply rules while designing
+
+布局时先确定网络功能、边沿、电源域、负载和测试接法，再据此选层、安排器件和预留通道。每组开始布线时应用其线宽、间距和参考面要求；经过细颈、换层、端接或调试分支时核对相关条件。阶段结束后再对最终铜形复验。
+
+During placement, identify each group's function, edge rate, power domain, load and test connection, then choose layers and reserve component and routing space. Apply width, clearance and reference-plane requirements when starting each group. Check the relevant conditions as necks, layer transitions, terminations and debug branches are introduced, then recheck the final copper at the stage boundary.
+
+| 类型 / Type | 使用方式 / How to apply |
+|---|---|
+| 默认建议 / Default guidance | 可覆盖的设计起点。10/20 mil 线宽、固定孔径和距离只属于项目可选预设。Overridable starting points. Numeric widths, via sizes and distances belong to an optional project preset. |
+| 必须检查 / Required checks | 场景存在时核对器件、制造和电气要求，允许有依据的例外。不存在的场景可略过，缺少输入时标明影响并继续独立工作。Check applicable device, fabrication and electrical requirements. Document justified exceptions, skip absent scenarios, and continue independent work when inputs are missing. |
+
+规则并入现有布局与布线参考，覆盖供电瓶颈、去耦、连续回流、差分主支路、上断电状态及可探测性。SPI 详细时序和仪器带宽预算由对应接口与测试方案提供。规则指导 Codex 的设计判断，当前脚本仍负责现场作业与 CAM 连通检查。
+
+The existing placement and routing reference now covers power bottlenecks, decoupling, continuous returns, differential main paths and stubs, power states and probe access. Interface and test plans supply detailed SPI timing and instrument bandwidth budgets. These instructions guide Codex's design decisions. The scripts continue to handle board jobs and CAM connectivity checks.
+
+连续布线期间记录待复验项，阶段结束统一重建铺铜；当前判断依赖实际铜面时提前重建相关区域。查阅[设计规则与可选预设](references/placement-routing.md#设计时使用规则)。
+
+Track pending rechecks during continuous routing and rebuild pours at the stage boundary. Rebuild the relevant regions earlier when a decision depends on filled copper. See [design rules and optional presets](references/placement-routing.md#设计时使用规则).
 
 ## 与上游的关系 · Relationship to upstream
 
@@ -66,7 +85,7 @@ python scripts/cam-check.py check.zip manifest.json report.json --pcb-skill PATH
 
 ## spadfe 测试板 · Worked example
 
-六层 ToF/DVS 测试板包含倒装 QFP144、光学开窗、FPGA 接口、160 MHz 时钟、灯板 LVDS 和阵列供电。冻结版记录 52 处断点。保留固定接口并重排 FPGA 电阻组与 DUT 两侧扇出后，试布收敛到 4 处，随后补齐。正式板原生 DRC 报告 0 项；按 0.025 mm 网格核对导出铜，303 个预期网络的 1,134 个焊盘通过连通检查。灯板 LVDS 主路径和调试支路需分别检查参考面，主路径的覆盖结果不能外推到支路。
+六层 ToF/DVS 测试板包含倒装 QFP144、光学开窗、FPGA 接口、160 MHz 时钟、灯板 LVDS 和阵列供电。冻结版记录 52 处断点。保留固定接口并重排 FPGA 电阻组与 DUT 两侧扇出后，试布收敛到 4 处，随后补齐。正式板原生 DRC 报告 0 项；按 0.025 mm 网格核对导出铜，303 个预期网络的 1,134 个焊盘通过连通检查。灯板 LVDS 主路径和调试支路需分别检查参考面，主路径的覆盖结果不能外推到支路。这些是已记录的 CAD/CAM 结果，样板验证仍待完成，阻抗、瞬态压降和成像性能需另行验证。
 
 The six-layer spadfe ToF/DVS test board combines an inverted QFP144, an optical aperture, FPGA headers, a 160 MHz clock, LVDS lighting control and an array supply. The frozen design had 52 routing gaps. Regrouping the FPGA resistors and DUT escapes around fixed interfaces reduced the trial to four gaps, which were then closed. Native DRC reported zero items on the formal board. Exported copper passed the connectivity check for 303 expected nets and 1,134 pads on a 0.025 mm grid. The LVDS main path and debug stub were evaluated separately. These results document CAD and CAM checks. Impedance, transient droop and imaging performance require separate measurement.
 
