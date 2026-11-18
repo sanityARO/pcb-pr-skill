@@ -9,7 +9,7 @@ A Codex skill for PCB placement, routing and manufacturing-data verification in 
 | 阶段 / Stage | 操作与交付物 / Actions and evidence |
 |---|---|
 | 冻结基线 / Freeze | 记录工程及板 UUID、网表、固定器件、引脚映射、机械与叠层约束，保存板源。Record the project and board UUIDs, netlist, fixed parts, pin map, mechanical constraints and stackup. Save a source snapshot. |
-| 布局 / Place | 先安排接口、光窗、探测空间和供电回流。按引脚顺序成组安排串联器件，放件时检查去耦和测试接法。Reserve mechanical, probing and return-path space. Group series components by pin order and check decoupling and test connections during placement. |
+| 布局 / Place | 先安排接口、光窗、探测空间和供电回流。按引脚顺序成组安排串联器件，放件时检查去耦和测试接法。提交布局供人工审查，通过并确认后进入布线。Reserve mechanical, probing and return-path space. Group series components by pin order and check decoupling and test connections during placement. Submit the layout for human review and obtain approval before routing. |
 | 试布与回退 / Route and revise | 在副本按端点组成组扇出，随走线核对参考面、换层、线宽和支路。若串联电阻区形成瓶颈，局部拆线、调整间距、恢复受影响的控制线，再以相同端点比较断点、长度、过孔和回流。On a copy, escape signals in groups and apply reference, transition, width and branch constraints as routing proceeds. At a bottleneck, rip up locally, revise spacing, restore displaced control nets and compare the same endpoints across candidates. |
 | 实铜验收 / Verify | 一个布线阶段结束后统一重建铺铜。保存并重开正式板，核对身份、运行原生 DRC，对同版 Gerber、钻孔与带网焊盘表做连通检查。After each routing stage, rebuild pours, save and reopen the target board. Run native DRC and check its Gerbers and drills against an independently derived pad manifest. |
 
@@ -46,7 +46,11 @@ flowchart TD
     P --> A["Codex · 建立本板约束<br/>Define project constraints"]
     Q --> A
     A --> B["Codex + 所选入口 · 布局<br/>Place parts and reserve paths"]
-    B --> C["Codex + 所选入口 · 成组布线<br/>Route groups using constraints"]
+    B --> V{"真人 · 布局审查<br/>Human layout review"}
+    V -- "需调整 / Revise" --> B
+    V -- "稍后继续 / Continue later" --> W["保存布局检查点，等待确认<br/>Save layout checkpoint and await approval"]
+    W -- "恢复审查 / Resume review" --> V
+    V -- "审查通过并同意布线 / Approved to route" --> C["Codex + 所选入口 · 成组布线<br/>Route groups using constraints"]
     U["daishuge/pcb-skill<br/>外部布线与 CAM 解析支持<br/>External routing and CAM parsers"]
     U -. "可选外部试布 / Optional routing trials" .-> C
     C --> D{"Codex · 当前方案满足约束？<br/>Does the candidate meet constraints?"}
@@ -63,6 +67,10 @@ flowchart TD
 **PcbCliTool 与 easyeda-api 按当前任务二选一。** 图中的“所选入口”沿用这一选择。PcbCliTool 优先处理本地工程，easyeda-api 用于客户端现场操作；`board-job.mjs` 仅用于 easyeda-api 路径。pcb-skill 提供可选外部试布支持，同时是现有 `cam-check.py` 的解析器依赖。所选工具的具体命令和可用能力按其版本文档确认。
 
 **Choose either PcbCliTool or easyeda-api for the current task.** “Selected backend” follows that choice throughout the diagram. Prefer PcbCliTool for local projects and use easyeda-api for live client operations; `board-job.mjs` applies only to the easyeda-api path. pcb-skill supports optional external routing trials and supplies the parser dependency used by `cam-check.py`. Confirm commands and capabilities in the selected tool's versioned documentation.
+
+**布局完成后交给真人审查。** 提供布局图、关键器件位置、供电与回流通道、测试可达性及待确认项。审查通过且用户同意进入布线后再继续；也可保存检查点，之后恢复。布线中局部调整若影响已确认的布局约束，应重新提交受影响部分审查。
+
+**Hand the completed layout to a human reviewer.** Provide layout views, critical component positions, power and return paths, probe access and open questions. Proceed to routing after review approval and the user's go-ahead, or save a checkpoint and resume later. Local routing changes that affect approved placement constraints require review of the affected area.
 
 布线过程中，Codex 在细颈、换层、终端和调试支路等位置应用对应规则。阶段结束复核最终铜形；当前判断依赖实铜时，提前重建相关区域。
 
