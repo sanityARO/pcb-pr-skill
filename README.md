@@ -40,17 +40,29 @@ Track pending rechecks during continuous routing and rebuild pours at the stage 
 
 ```mermaid
 flowchart TD
-    A["Codex · 建立本板约束<br/>Define project constraints"] --> B["Codex · 布局时应用规则<br/>Place parts and reserve paths"]
-    B --> C["Codex + 工具 · 成组布线<br/>Route groups using selected constraints"]
+    T{"选择执行入口 · 二选一<br/>Choose one execution backend"}
+    T -- "本地工程优先 / Prefer local" --> P["PcbCliTool 0.3.0<br/>本地文件操作 / Local files"]
+    T -- "客户端操作 / Live client" --> Q["easyeda-api<br/>客户端 SDK / Client SDK"]
+    P --> A["Codex · 建立本板约束<br/>Define project constraints"]
+    Q --> A
+    A --> B["Codex + 所选入口 · 布局<br/>Place parts and reserve paths"]
+    B --> C["Codex + 所选入口 · 成组布线<br/>Route groups using constraints"]
+    U["daishuge/pcb-skill<br/>外部布线与 CAM 解析支持<br/>External routing and CAM parsers"]
+    U -. "可选外部试布 / Optional routing trials" .-> C
     C --> D{"Codex · 当前方案满足约束？<br/>Does the candidate meet constraints?"}
-    D -- "需调整 / Revise" --> R["Codex + 工具 · 局部重排或重布<br/>Revise placement or reroute locally"]
+    D -- "需调整 / Revise" --> R["Codex + 所选入口 · 局部重排或重布<br/>Revise placement or reroute"]
     R --> C
-    D -- "阶段完成 / Stage complete" --> E["工具 · 重建铺铜、保存、导出<br/>Rebuild pours, save and export"]
-    E --> F["自动检查 · 原生 DRC + CAM 连通<br/>Native DRC + CAM connectivity"]
+    D -- "阶段完成 / Stage complete" --> E["所选入口 · 重建铺铜、保存、导出及 DRC<br/>Rebuild, save, export and run DRC"]
+    E --> F["pcb-pr-skill · cam-check.py<br/>自动核对 Gerber 连通性<br/>Automatic CAM connectivity check"]
+    U -. "解析器依赖 / Parser dependency" .-> F
     F --> G["Codex · 复核回流、供电与未验证项<br/>Review returns, power and open questions"]
     G -- "有设计问题 / Design issue" --> R
     G -- "符合本次交付要求 / Meets this stage" --> H["记录结果与待确认项<br/>Record results and remaining validation"]
 ```
+
+**PcbCliTool 与 easyeda-api 按当前任务二选一。** 图中的“所选入口”沿用这一选择。PcbCliTool 优先处理本地工程，easyeda-api 用于客户端现场操作；`board-job.mjs` 仅用于 easyeda-api 路径。pcb-skill 提供可选外部试布支持，同时是现有 `cam-check.py` 的解析器依赖。所选工具的具体命令和可用能力按其版本文档确认。
+
+**Choose either PcbCliTool or easyeda-api for the current task.** “Selected backend” follows that choice throughout the diagram. Prefer PcbCliTool for local projects and use easyeda-api for live client operations; `board-job.mjs` applies only to the easyeda-api path. pcb-skill supports optional external routing trials and supplies the parser dependency used by `cam-check.py`. Confirm commands and capabilities in the selected tool's versioned documentation.
 
 布线过程中，Codex 在细颈、换层、终端和调试支路等位置应用对应规则。阶段结束复核最终铜形；当前判断依赖实铜时，提前重建相关区域。
 
@@ -59,7 +71,7 @@ During routing, Codex applies the relevant rules at necks, layer transitions, te
 | 执行者 / Responsibility | 当前范围 / Current scope |
 |---|---|
 | Codex 工程判断 / Engineering judgment | 网络分类、线宽与层分配、器件位置、回流路径、供电瓶颈、探头负载及例外依据。必要时结合手册、计算、仿真与实测。Classifies nets and assesses widths, layers, placement, returns, power bottlenecks, probe loading and exceptions using documentation, calculations, simulation or measurements as needed. |
-| EDA/CLI 工具 / Tools | 负责放件、走线、铺铜和导出。原生 DRC 根据已配置且实际生效的规则检查；本仓库的 `board-job.mjs` 可发起并记录相关现场作业。Execute placement, routing, pours and exports. Native DRC checks the configured, active rules; `board-job.mjs` can invoke and record the supported live jobs. |
+| PcbCliTool 或 easyeda-api / Selected backend | 执行放件、走线、铺铜、导出和对应 DRC；检查范围取决于工具能力及生效规则。`board-job.mjs` 调用 easyeda-api 的现场作业。Executes placement, routing, pours, exports and the corresponding DRC. Coverage depends on tool capabilities and active rules. `board-job.mjs` invokes live easyeda-api jobs. |
 | 已有 CAM 脚本 / Existing CAM script | `cam-check.py` 将 Gerber、金属化钻孔与独立焊盘网表对照，在支持格式和所选分辨率内报告开路、异网共铜和缺铜焊盘。Compares Gerbers and plated drills with an independent pad manifest, reporting opens, shared copper between nets and pads without copper within its format and resolution limits. |
 
 新增规则尚未全部实现为自动扫描。DRC 和 CAM 结果用于支持判断；阻抗、载流与温升、信号质量、回流质量及功能仍按相应方法验证。
