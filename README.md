@@ -21,7 +21,7 @@ During placement, identify each group's function, edge rate, power domain, load 
 
 | 类型 / Type | 使用方式 / How to apply |
 |---|---|
-| 默认建议 / Default guidance | 可覆盖的设计起点。10/20 mil 线宽、固定孔径和距离只属于项目可选预设。Overridable starting points. Numeric widths, via sizes and distances belong to an optional project preset. |
+| 默认建议 / Default guidance | 可覆盖的设计起点。≥10/≥20 mil 线宽及建议孔径和距离只属于项目可选预设。Overridable starting points. Numeric widths, via sizes and distances belong to an optional project preset. |
 | 必须检查 / Required checks | 场景存在时核对器件、制造和电气要求，允许有依据的例外。不存在的场景可略过，缺少输入时标明影响并继续独立工作。Check applicable device, fabrication and electrical requirements. Document justified exceptions, skip absent scenarios, and continue independent work when inputs are missing. |
 
 规则并入现有布局与布线参考，覆盖供电瓶颈、去耦、连续回流、差分主支路、上断电状态及可探测性。SPI 详细时序和仪器带宽预算由对应接口与测试方案提供。规则指导 Codex 的设计判断，当前脚本仍负责现场作业与 CAM 连通检查。
@@ -31,6 +31,44 @@ The existing placement and routing reference now covers power bottlenecks, decou
 连续布线期间记录待复验项，阶段结束统一重建铺铜；当前判断依赖实际铜面时提前重建相关区域。查阅[设计规则与可选预设](references/placement-routing.md#设计时使用规则)。
 
 Track pending rechecks during continuous routing and rebuild pours at the stage boundary. Rebuild the relevant regions earlier when a decision depends on filled copper. See [design rules and optional presets](references/placement-routing.md#设计时使用规则).
+
+### 规则如何进入流程 · Rules in the workflow
+
+图中的 **Codex** 表示依据器件资料、项目约束和当前几何作工程判断；**工具**表示调用 EDA/CLI 执行动作；**自动检查**仅指下面列出的已有检查能力。
+
+**Codex** makes engineering judgments from device data, project constraints and current geometry. **Tools** execute EDA/CLI operations. **Automatic checks** refer only to the existing capabilities listed below.
+
+```mermaid
+flowchart TD
+    A["Codex · 建立本板约束<br/>Define project constraints"] --> B["Codex · 布局时应用规则<br/>Place parts and reserve paths"]
+    B --> C["Codex + 工具 · 成组布线<br/>Route groups using selected constraints"]
+    C --> D{"Codex · 当前方案满足约束？<br/>Does the candidate meet constraints?"}
+    D -- "需调整 / Revise" --> R["Codex + 工具 · 局部重排或重布<br/>Revise placement or reroute locally"]
+    R --> C
+    D -- "阶段完成 / Stage complete" --> E["工具 · 重建铺铜、保存、导出<br/>Rebuild pours, save and export"]
+    E --> F["自动检查 · 原生 DRC + CAM 连通<br/>Native DRC + CAM connectivity"]
+    F --> G["Codex · 复核回流、供电与未验证项<br/>Review returns, power and open questions"]
+    G -- "有设计问题 / Design issue" --> R
+    G -- "符合本次交付要求 / Meets this stage" --> H["记录结果与待确认项<br/>Record results and remaining validation"]
+```
+
+布线过程中，Codex 在细颈、换层、终端和调试支路等位置应用对应规则。阶段结束复核最终铜形；当前判断依赖实铜时，提前重建相关区域。
+
+During routing, Codex applies the relevant rules at necks, layer transitions, terminations and debug branches. Final copper is reviewed at the stage boundary. Rebuild affected regions earlier when a decision depends on filled copper.
+
+| 执行者 / Responsibility | 当前范围 / Current scope |
+|---|---|
+| Codex 工程判断 / Engineering judgment | 网络分类、线宽与层分配、器件位置、回流路径、供电瓶颈、探头负载及例外依据。必要时结合手册、计算、仿真与实测。Classifies nets and assesses widths, layers, placement, returns, power bottlenecks, probe loading and exceptions using documentation, calculations, simulation or measurements as needed. |
+| EDA/CLI 工具 / Tools | 负责放件、走线、铺铜和导出。原生 DRC 根据已配置且实际生效的规则检查；本仓库的 `board-job.mjs` 可发起并记录相关现场作业。Execute placement, routing, pours and exports. Native DRC checks the configured, active rules; `board-job.mjs` can invoke and record the supported live jobs. |
+| 已有 CAM 脚本 / Existing CAM script | `cam-check.py` 将 Gerber、金属化钻孔与独立焊盘网表对照，在支持格式和所选分辨率内报告开路、异网共铜和缺铜焊盘。Compares Gerbers and plated drills with an independent pad manifest, reporting opens, shared copper between nets and pads without copper within its format and resolution limits. |
+
+新增规则尚未全部实现为自动扫描。DRC 和 CAM 结果用于支持判断；阻抗、载流与温升、信号质量、回流质量及功能仍按相应方法验证。
+
+The added guidance is not fully implemented as automated scans. DRC and CAM results support the review. Impedance, current capacity, temperature rise, signal integrity, return quality and function still need the appropriate analysis or measurement.
+
+**可选线宽预设。** 空间允许的低压测试板可将普通非阻抗信号 **≥10 mil（0.254 mm）**、供电干线 **≥20 mil（0.508 mm）**作为起始下限。电源按电流、铜厚、长度、允许压降和温升加宽或铺铜；电压与瞬态要求同时决定净距、绝缘及器件额定值。受控阻抗、细脚短出线和敏感模拟节点按专门约束确定，并记录偏离预设的依据。
+
+**Optional width preset.** For low-voltage test boards with sufficient space, use **≥10 mil (0.254 mm)** for ordinary non-impedance-controlled signals and **≥20 mil (0.508 mm)** for supply trunks as starting minimums. Widen power paths or use copper pours according to current, copper thickness, length, allowed voltage drop and temperature rise. Voltage and transients also determine clearance, insulation and component ratings. Controlled-impedance routes, short fine-pitch escapes and sensitive analog nodes use their specific constraints with documented departures from the preset.
 
 ## 与上游的关系 · Relationship to upstream
 
