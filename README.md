@@ -53,18 +53,18 @@ flowchart TD
     T{"执行入口二选一<br/>Choose one backend"}
     T --> P["PcbCliTool 0.3.0<br/>优先本地工程 / Prefer local files"]
     T --> Q["easyeda-api<br/>嘉立创EDA 客户端 / Live client"]
-    P --> A["Codex · 约束与布局<br/>Constraints and placement"]
+    P --> A["Codex · 布局与适用规则<br/>Placement and applicable rules"]
     Q --> A
     A --> H{"真人审查 · 保存检查点<br/>Human layout approval"}
     H -- "调整 / Revise" --> A
-    H -- "通过 / Approved" --> R["Codex + 工具 · 成组布线<br/>Grouped routing"]
+    H -- "通过 / Approved" --> R["Codex + 工具 · 成组布线与随布检查<br/>Grouped routing and in-process checks"]
     R -- "布局调整超出批准范围 / Placement scope changes" --> A
     U["pcb-skill<br/>外部试布与 CAM 解析<br/>Routing support and CAM parsers"]
     U -. "可选 / Optional" .-> R
     R -- "阶段完成 / Stage complete" --> E["所选工具 · 铺铜、导出、DRC<br/>Pours, exports and DRC"]
     E --> C["cam-check.py · 自动连通检查<br/>Automatic connectivity check"]
     U -. "解析依赖 / Parser dependency" .-> C
-    C --> V["Codex · 工程复核与结果交付<br/>Engineering review and report"]
+    C --> V["Codex · 工程复核与结果交付<br/>Final engineering review and report"]
     V -- "走线修订 / Route revision" --> R
 ```
 
@@ -76,13 +76,20 @@ Submit the completed layout for human approval before routing, with a checkpoint
 
 | 时机 / Stage | Codex 判断 / Engineering judgment |
 |---|---|
-| 放件 / Placement | 去耦、供电回流、接口及探测空间。Decoupling, power returns, interfaces and probe access. |
-| 走线 / Routing | 线宽、间距、细颈、换层、端接与支路。Widths, spacing, necks, transitions, terminations and branches. |
-| 验收 / Acceptance | 最终实铜、返回路径、电气条件与未验证项。Final copper, return paths, electrical conditions and open questions. |
+| 放件 / Placement | 参考电路适用性、安装孔铜归属、去耦回路和测量边界。Reference suitability, mounting-copper connectivity, decoupling loops and measurement boundaries. |
+| 走线 / Routing | 线宽/细颈、差分主通路时序、支路、泪滴、侧地及换层回流。Widths/necks, differential main-path timing, branches, teardrops, guards and return transitions. |
+| 验收 / Acceptance | 同版原理图/ECO 与 PCB，最终实铜及受改动影响的工程条件。Matching schematic/ECO and PCB revisions, final copper and affected engineering conditions. |
 
 **默认建议可覆盖，必须检查项按场景触发。** 可选低压测试板预设为普通非阻抗信号 **≥10 mil**、供电干线 **≥20 mil**；按电流、铜厚、压降与温升调整，电压同时约束净距、绝缘和额定值。阻抗线、细脚和敏感节点按专门要求确定。详见[设计规则](references/placement-routing.md#设计时使用规则)。
 
 **Defaults are overridable; required checks are conditional.** An optional low-voltage preset starts at **≥10 mil** for ordinary signals and **≥20 mil** for power trunks. Adjust for current, copper, drop and heating; voltage also constrains clearance, insulation and ratings. Impedance-controlled routes, fine-pitch escapes and sensitive nodes use their specific requirements.
+
+| 场景 / Scenario | 默认建议 / Default | 必须检查的触发条件 / Required when applicable |
+|---|---|---|
+| 参考与测量 / References and measurement | 借鉴方法，不照搬参数。Reuse methods, not parameters. | 复用前核对功能、频带及源/负载；供电测流核对量程、误差与储能边界。Check function, band and source/load before reuse; supply-current measurements need range, error and stored-energy boundaries. |
+| 安装孔 / Mounting holes | 孔型按机械需求。Choose holes for mechanical needs. | 金属紧固件/孔边铜需明确浮空、GND 或机壳地，并检查全层净距。Define floating, GND or chassis connectivity and all-layer clearances for metal fasteners or hole copper. |
+| 调长与修形 / Tuning and copper shaping | 先保参考和对称，择点加泪滴。Prioritize references and symmetry; use teardrops selectively. | 按主通路时序预算调长，支路单列；阻抗线修形核对局部阻抗/电容，电源核对最窄截面。Tune to main-path timing budgets, assess branches separately; check local impedance/capacitance or power bottlenecks after shaping. |
+| 地与守卫 / Grounds and guards | 分区与连续回流优先。Prioritize partitioning and continuous returns. | 地别名/短接符号不等于隔离；高阻侧地需检查漏电和附加电容。Ground aliases/ties do not establish isolation; guards near high-impedance nodes need leakage and capacitance checks. |
 
 | 已有自动能力 / Existing automation | 范围 / Scope |
 |---|---|
@@ -90,9 +97,9 @@ Submit the completed layout for human approval before routing, with a checkpoint
 | `board-job.mjs` | easyeda-api 路径的快照、铺铜保存、DRC 和导出作业。Snapshots, pour/save, DRC and exports through easyeda-api. |
 | `cam-check.py` + pcb-skill 解析器 / Parsers | 开路、异网共铜、缺铜焊盘，受文件格式及分辨率限制。Opens, shared copper and missing pad copper within format/resolution limits. |
 
-工程规则尚未全部自动化。阻抗、载流、回流质量和功能需对应分析或实测；连续布线在阶段结束统一重建铺铜，依赖实铜的判断可提前重建相关区域。
+表中工程规则由 Codex 判断，必要时由人工、仿真或实测确认，并非新增自动检查。脚本不自动验证参考电路适用性、机械接触、阻抗/串扰、载流与回流质量、去耦效果或功耗测量精度；连续布线在阶段结束统一重建铺铜，依赖实铜的判断可提前重建相关区域。
 
-Engineering guidance is not fully automated. Impedance, current capacity, return quality and function need appropriate analysis or measurement. Rebuild pours at stage boundaries, or earlier where a decision needs current filled copper.
+The engineering rules above guide Codex judgment, with human review, simulation or measurement as needed; they are not new automated checks. Scripts do not establish reference-circuit suitability, mechanical contact, impedance/crosstalk, current capacity or return quality, decoupling effectiveness or power-measurement accuracy. Rebuild pours at stage boundaries, or earlier where a decision needs current filled copper.
 
 ## 与上游的关系 · Relationship to upstream
 
