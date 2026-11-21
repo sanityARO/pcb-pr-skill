@@ -57,7 +57,7 @@ flowchart TD
     B -- "评审并批准 / Review and approve" --> C["成组布线<br/>Grouped routing"]
     A -- "评审批准 / Approved" --> C
     C -- "局部拥塞 / Congestion" --> A
-    C --> D["重铺铜与邻域复核<br/>Pours and neighborhood checks"]
+    C -- "阶段完成或需实铜 / Stage boundary or copper-dependent decision" --> D["重铺铜与邻域复核<br/>Pours and neighborhood checks"]
     D -- "出现回归 / Regression" --> A
     D --> E["读回与按交付点验收<br/>Readback and scoped acceptance"]
 ```
@@ -92,9 +92,9 @@ Use authorized copies to trial difficult escapes, group entrances and test branc
 | `board-job.mjs` | easyeda-api 路径的快照、铺铜保存、DRC 和导出作业。Snapshots, pour/save, DRC and exports through easyeda-api. |
 | `cam-check.py` + pcb-skill 解析器 / Parsers | 开路、异网共铜、缺铜焊盘，受文件格式及分辨率限制。Opens, shared copper and missing pad copper within format/resolution limits. |
 
-表中工程规则由 Codex 判断，必要时由人工、仿真或实测确认，并非新增自动检查。脚本不自动验证参考电路适用性、机械接触、阻抗/串扰、载流与回流质量、去耦效果或功耗测量精度；连续布线在阶段结束统一重建铺铜，依赖实铜的判断可提前重建相关区域。
+表中工程规则由 Codex 判断，必要时由人工、仿真或实测确认，并非新增自动检查。脚本不自动验证参考电路适用性、机械接触、阻抗/串扰、载流与回流质量、去耦效果或功耗测量精度；集中成组布线，避免每布一两根就重铺、导出或中断；阶段结束统一重建，依赖实铜的决策按[例外条件](references/placement-routing.md#集中布线与阶段铺铜)提前核验。
 
-The engineering rules above guide Codex judgment, with human review, simulation or measurement as needed; they are not new automated checks. Scripts do not establish reference-circuit suitability, mechanical contact, impedance/crosstalk, current capacity or return quality, decoupling effectiveness or power-measurement accuracy. Rebuild pours at stage boundaries, or earlier where a decision needs current filled copper.
+The engineering rules above guide Codex judgment, with human review, simulation or measurement as needed; they are not new automated checks. Scripts do not establish reference-circuit suitability, mechanical contact, impedance/crosstalk, current capacity or return quality, decoupling effectiveness or power-measurement accuracy. Route in groups without interrupting every few traces to repour or export. Rebuild at stage boundaries, or earlier when a decision depends on current filled copper.
 
 ## 与上游的关系 · Relationship to upstream
 
