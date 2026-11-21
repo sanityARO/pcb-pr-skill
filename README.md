@@ -12,8 +12,10 @@ An AI-assisted workflow from board schematics to placement, routing and fabricat
 
 | 遇到的问题 / Problem | 工作方法 / Method |
 |---|---|
+| 布局拥挤，到后期才发现无路 / Congestion discovered late | 布局阶段可选试布瓶颈组，反馈器件间距和通道。Trial bottleneck groups during placement and revise spacing/channels. |
 | 串联电阻挡住出线 / Resistor banks block escape routes | 回到副本重排器件，按引脚顺序成组扇出。Regroup parts and fan out signals in pin order on a copy. |
 | 接通后仍有绕弯、多次换层 / Connected routes take detours | 局部重布，按相同端点比较长度、过孔和回流。Reroute locally and compare length, vias and returns for the same endpoints. |
+| 改善目标线却恶化邻网 / Local gains harm neighbors | 成组恢复连接，复扫快速信号、敏感节点和供电回流。Restore group connections and recheck fast signals, sensitive nodes and power returns. |
 | 完成提示无法证明制造文件接通 / Completion does not establish CAM connectivity | 对照 Gerber、镀孔和独立焊盘网表检查漏接与短接。Check exported copper and plated drills against an independent pad manifest. |
 
 ## 六层芯片测试板案例 · Six-layer test-board example
@@ -50,27 +52,20 @@ The figures show actual placement and route comparisons in common coordinates. R
 
 ```mermaid
 flowchart TD
-    T{"执行入口二选一<br/>Choose one backend"}
-    T --> P["PcbCliTool 0.3.0<br/>优先本地工程 / Prefer local files"]
-    T --> Q["easyeda-api<br/>嘉立创EDA 客户端 / Live client"]
-    P --> A["Codex · 布局与适用规则<br/>Placement and applicable rules"]
-    Q --> A
-    A --> H{"真人审查 · 保存检查点<br/>Human layout approval"}
-    H -- "调整 / Revise" --> A
-    H -- "通过 / Approved" --> R["Codex + 工具 · 成组布线与随布检查<br/>Grouped routing and in-process checks"]
-    R -- "布局调整超出批准范围 / Placement scope changes" --> A
-    U["pcb-skill<br/>外部试布与 CAM 解析<br/>Routing support and CAM parsers"]
-    U -. "可选 / Optional" .-> R
-    R -- "阶段完成 / Stage complete" --> E["所选工具 · 铺铜、导出、DRC<br/>Pours, exports and DRC"]
-    E --> C["cam-check.py · 自动连通检查<br/>Automatic connectivity check"]
-    U -. "解析依赖 / Parser dependency" .-> C
-    C --> V["Codex · 工程复核与结果交付<br/>Final engineering review and report"]
-    V -- "走线修订 / Route revision" --> R
+    A["布局与通道预算<br/>Placement and channel budget"] --> B["可选瓶颈组试布<br/>Optional bottleneck trial"]
+    B -- "拥塞或回流不足 / Revise" --> A
+    B -- "评审并批准 / Review and approve" --> C["成组布线<br/>Grouped routing"]
+    A -- "评审批准 / Approved" --> C
+    C -- "局部拥塞 / Congestion" --> A
+    C --> D["重铺铜与邻域复核<br/>Pours and neighborhood checks"]
+    D -- "出现回归 / Regression" --> A
+    D --> E["读回与按交付点验收<br/>Readback and scoped acceptance"]
 ```
 
-布局完成后提交真人审查，确认后再布线，可保存检查点稍后继续。已批准范围内可局部优化；改变已确认布局约束时复审受影响部分。
+布局阶段在已授权副本上试最难扇出、整组入口及必要测试支路，用实际线宽、孔盘和回流空间提前发现拥塞。用户明确要求不布线时采用几何预测。保存布局检查点供后续恢复，图中进入成组布线的路径均需已有布线授权，超出授权范围的固定项调整须先复审。
 
-Submit the completed layout for human approval before routing, with a checkpoint for later continuation. Local optimization may proceed within the approved scope; changes to approved placement constraints require review.
+Use authorized copies to trial difficult escapes, group entrances and test branches with realistic widths, via pads and return space. For layout-only requests, use geometric prediction. Routing requires existing authorization; changes beyond the approved scope return to review.
+
 
 ### 规则何时使用 · When rules apply
 
@@ -105,8 +100,8 @@ The engineering rules above guide Codex judgment, with human review, simulation 
 
 | 工具 / Tool | 分工与验证范围 / Role and validation |
 |---|---|
-| [PcbCliTool](https://github.com/cc38324/PcbCliTool) | 优先本地工程；已验证 **0.3.0 / Windows x64** 的官方 Demo 和六层工程只读解析。整板重布尚未验证，部分引脚/跨页解析需交叉核对。Preferred local backend; official demo and read-only six-layer parsing tested. Full-board rerouting remains unverified; some pin/off-page interpretation needs cross-checks. |
-| [easyeda-api](https://github.com/easyeda/easyeda-api-skill) | 实时客户端与 SDK 操作，和 PcbCliTool 按任务二选一。记录组合 **1.1.36 + 嘉立创EDA 4.1.99**。Alternative live backend; recorded configuration shown. |
+| [PcbCliTool](https://github.com/cc38324/PcbCliTool) | 优先本地工程；已验证 **0.3.0 / Windows x64** 的官方 Demo 和特定六层工程读取、项目脚本修改后的读回、重铺铜、DRC 与诊断 CAM 导出。自带路由能力逐命令验证；开窗导出等限制见[版本记录](references/easyeda-cam.md#工具能力与版本记录)。Native readback, repouring, DRC and diagnostic CAM tested on selected six-layer files after project-script edits. Built-in routing requires separate validation; see the version notes for export limits. |
+| [easyeda-api](https://github.com/easyeda/easyeda-api-skill) | 实时客户端与 SDK 操作，按操作选用，明确同步与单一写入者。记录组合 **1.1.36 + 嘉立创EDA 4.1.99**。Alternative live backend; recorded configuration shown. |
 | [pcb-skill](https://github.com/daishuge/pcb-skill/tree/6e939b64907e3c63236c7522c511af5d7d1afaad) | 提供外部布线与 CAM 工具；本仓库沿用其解析器，补充布局回退、候选比较和验收流程。Supplies routing/CAM tooling; this skill adds placement rollback, candidate comparison and verification procedures. |
 
 ## 安装与试用 · Install and try
