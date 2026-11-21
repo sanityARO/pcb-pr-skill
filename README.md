@@ -18,36 +18,6 @@ An AI-assisted workflow from board schematics to placement, routing and fabricat
 | 改善目标线却恶化邻网 / Local gains harm neighbors | 成组恢复连接，复扫快速信号、敏感节点和供电回流。Restore group connections and recheck fast signals, sensitive nodes and power returns. |
 | 完成提示无法证明制造文件接通 / Completion does not establish CAM connectivity | 对照 Gerber、镀孔和独立焊盘网表检查漏接与短接。Check exported copper and plated drills against an independent pad manifest. |
 
-## 六层芯片测试板案例 · Six-layer test-board example
-
-既有 pcb-skill 与路由器流程在该板遇到拥塞，pcb-pr-skill 整理了从布局回退到继续布线的方法。
-
-Congestion in the existing pcb-skill/router workflow motivated the placement rollback and routing continuation methods collected here.
-
-**中文图示**
-
-<p>
-<a href="assets/grouped-fanout.png"><img src="assets/grouped-fanout.png" width="380" alt="固定 FPGA 母座后重排 0 Ω 电阻与 DUT 扇出"></a>
-<a href="assets/spi-miso-reroute.png"><img src="assets/spi-miso-reroute.png" width="380" alt="SPI_MISO 在相同三个端点下的局部重布比较"></a>
-</p>
-
-**English figures**
-
-<p>
-<a href="assets/grouped-fanout-en.png"><img src="assets/grouped-fanout-en.png" width="380" alt="Regrouping 0-ohm resistors and DUT fanout around fixed FPGA headers"></a>
-<a href="assets/spi-miso-reroute-en.png"><img src="assets/spi-miso-reroute-en.png" width="380" alt="SPI_MISO before and after local rerouting with the same three endpoints"></a>
-</p>
-
-| 已记录结果 / Recorded result | 比较范围 / Scope |
-|---|---|
-| 全板断点 **52 → 4 → 0** / Board routing gaps | 成组重排后继续局部补线，多个步骤共同完成。Multiple placement and routing steps contributed. |
-| SPI_MISO **104.50 → 102.72 mm**，信号过孔 **11 → 9** / Signal vias | 两版均接通 U2.25、R269.2、J123.4，长度包含调试支路。Same three endpoints, including the debug branch. |
-| **303 nets / 1,134 pads** | 0.025 mm 栅格 CAM 连通核验通过；记录的原生 DRC 为 0 项。CAM connectivity passed at 0.025 mm resolution; native DRC reported zero items. |
-
-图片展示实际布局与同坐标走线比较。已完成该版布线，**待打板验证**；几何改善尚未证明信号质量或功能改善。
-
-The figures show actual placement and route comparisons in common coordinates. Routing is complete for the recorded revision; **fabrication and hardware validation are pending**. Geometric improvements have not established signal-integrity or functional gains.
-
 ## 工作流程 · Workflow
 
 ```mermaid
@@ -103,6 +73,36 @@ The engineering rules above guide Codex judgment, with human review, simulation 
 | [PcbCliTool](https://github.com/cc38324/PcbCliTool) | 优先本地工程；已验证 **0.3.0 / Windows x64** 的官方 Demo 和特定六层工程读取、项目脚本修改后的读回、重铺铜、DRC 与诊断 CAM 导出。自带路由能力逐命令验证；开窗导出等限制见[版本记录](references/easyeda-cam.md#工具能力与版本记录)。Native readback, repouring, DRC and diagnostic CAM tested on selected six-layer files after project-script edits. Built-in routing requires separate validation; see the version notes for export limits. |
 | [easyeda-api](https://github.com/easyeda/easyeda-api-skill) | 实时客户端与 SDK 操作，按操作选用，明确同步与单一写入者。记录组合 **1.1.36 + 嘉立创EDA 4.1.99**。Alternative live backend; recorded configuration shown. |
 | [pcb-skill](https://github.com/daishuge/pcb-skill/tree/6e939b64907e3c63236c7522c511af5d7d1afaad) | 提供外部布线与 CAM 工具；本仓库沿用其解析器，补充布局回退、候选比较和验收流程。Supplies routing/CAM tooling; this skill adds placement rollback, candidate comparison and verification procedures. |
+
+## 六层芯片测试板案例 · Six-layer test-board example
+
+既有 pcb-skill 与路由器流程在该板遇到拥塞，pcb-pr-skill 整理了从布局回退到继续布线的方法。
+
+Congestion in the existing pcb-skill/router workflow motivated the placement rollback and routing continuation methods collected here.
+
+**中文图示**
+
+<p>
+<a href="assets/grouped-fanout.png"><img src="assets/grouped-fanout.png" width="380" alt="固定 FPGA 母座后重排 0 Ω 电阻与 DUT 扇出"></a>
+<a href="assets/spi-miso-reroute.png"><img src="assets/spi-miso-reroute.png" width="380" alt="SPI_MISO 在相同三个端点下的局部重布比较"></a>
+</p>
+
+**English figures**
+
+<p>
+<a href="assets/grouped-fanout-en.png"><img src="assets/grouped-fanout-en.png" width="380" alt="Regrouping 0-ohm resistors and DUT fanout around fixed FPGA headers"></a>
+<a href="assets/spi-miso-reroute-en.png"><img src="assets/spi-miso-reroute-en.png" width="380" alt="SPI_MISO before and after local rerouting with the same three endpoints"></a>
+</p>
+
+| 已记录结果 / Recorded result | 比较范围 / Scope |
+|---|---|
+| 全板断点 **52 → 4 → 0** / Board routing gaps | 成组重排后继续局部补线，多个步骤共同完成。Multiple placement and routing steps contributed. |
+| SPI_MISO **104.50 → 102.72 mm**，信号过孔 **11 → 9** / Signal vias | 两版均接通 U2.25、R269.2、J123.4，长度包含调试支路。Same three endpoints, including the debug branch. |
+| **303 nets / 1,134 pads** | 0.025 mm 栅格 CAM 连通核验通过；记录的原生 DRC 为 0 项。CAM connectivity passed at 0.025 mm resolution; native DRC reported zero items. |
+
+图片展示实际布局与同坐标走线比较。已完成该版布线，**待打板验证**；几何改善尚未证明信号质量或功能改善。
+
+The figures show actual placement and route comparisons in common coordinates. Routing is complete for the recorded revision; **fabrication and hardware validation are pending**. Geometric improvements have not established signal-integrity or functional gains.
 
 ## 安装与试用 · Install and try
 
